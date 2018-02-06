@@ -1,9 +1,10 @@
 #include <cstdio>
 #include <vector>
 #include <cstdlib>
+#include <string>
 #include "BVH.h"
 #include "Sphere.h"
-using std::vector;
+#include "Stopwatch.h"
 
 // Return a random number in [0,1]
 float rand01() {
@@ -15,36 +16,12 @@ Vector3 randVector3() {
   return Vector3(rand01(), rand01(), rand01())*2.f - Vector3(1,1,1);
 }
 
-int main(int argc, char **argv) {
-
-  // Create a million spheres packed in the space of a cube
-  const unsigned int N = 1000000;
-  vector<Object*> objects;
-  printf("Constructing %d spheres...\n", N);
-  for(size_t i=0; i<N; ++i) {
-    objects.push_back(new Sphere(randVector3(), .005f));
-  }
-
+template<typename H>
+void render_image(std::vector<Object *> &objects, int width, int height, float *pixels,
+                    Vector3 camera_position, Vector3 camera_dir, Vector3 camera_u, Vector3 camera_v) {
+  Stopwatch timer;
   // Compute a BVH for this object set
-  BVH bvh(&objects);
-
-  // Allocate space for some image pixels
-  const unsigned int width=800, height=800;
-  float* pixels = new float[width*height*3];
-
-  // Create a camera from position and focus point
-  Vector3 camera_position(1.6, 1.3, 1.6);
-  Vector3 camera_focus(0,0,0);
-  Vector3 camera_up(0,1,0);
-
-  // Camera tangent space
-  Vector3 camera_dir = normalize(camera_focus - camera_position);
-  Vector3 camera_u = normalize(camera_dir ^ camera_up);
-  Vector3 camera_v = normalize(camera_u ^ camera_dir);
-
-  printf("Rendering image (%dx%d)...\n", width, height);
-  // Raytrace over every pixel
-#pragma omp parallel for
+  H bvh(&objects);
   for(size_t i=0; i<width; ++i) {
     for(size_t j=0; j<height; ++j) {
       size_t index = 3*(width * j + i);
@@ -73,6 +50,45 @@ int main(int argc, char **argv) {
       }
     }
   }
+  printf("Took %f", timer.read());
+}
+
+void write_image(int width, int height, float *pixels, std::string fileName) {
+}
+
+int main(int argc, char **argv) {
+  // If we want different results
+  // each time
+  srand(time(NULL));
+
+  // Create a million spheres packed in the space of a cube
+  const unsigned int N = 100;
+  std::vector<Object*> objects;
+  printf("Constructing %d spheres...\n", N);
+  for(size_t i=0; i<N; ++i) {
+    objects.push_back(new Sphere(randVector3(), .05f));
+  }
+
+
+
+  // Create a camera from position and focus point
+  Vector3 camera_position(1.6, 1.3, 1.6);
+  Vector3 camera_focus(0,0,0);
+  Vector3 camera_up(0,1,0);
+
+  // Camera tangent space
+  Vector3 camera_dir = normalize(camera_focus - camera_position);
+  Vector3 camera_u = normalize(camera_dir ^ camera_up);
+  Vector3 camera_v = normalize(camera_u ^ camera_dir);
+  
+  // Allocate space for some image pixels
+  const unsigned int width=800, height=800;
+  float* regular_pixels = new float[width*height*3];
+  float* new_pixels = new float[width*height*3];
+
+  printf("Rendering image regular (%dx%d)...\n", width, height);
+  render_image<BVH>(objects, width, height, regular_pixels,
+          camera_position, camera_dir, camera_u, camera_v);
 
   // Output image file (PPM Format)
   printf("Writing out image file: \"render.ppm\"\n");
