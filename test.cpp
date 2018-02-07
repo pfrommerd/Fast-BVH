@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <string>
 #include "BVH.h"
+#include "ABVH.h"
 #include "Sphere.h"
 #include "Stopwatch.h"
 
@@ -19,9 +20,9 @@ Vector3 randVector3() {
 template<typename H>
 void render_image(std::vector<Object *> &objects, int width, int height, float *pixels,
                     Vector3 camera_position, Vector3 camera_dir, Vector3 camera_u, Vector3 camera_v) {
-  Stopwatch timer;
   // Compute a BVH for this object set
   H bvh(&objects);
+  Stopwatch timer;
   for(size_t i=0; i<width; ++i) {
     for(size_t j=0; j<height; ++j) {
       size_t index = 3*(width * j + i);
@@ -50,10 +51,23 @@ void render_image(std::vector<Object *> &objects, int width, int height, float *
       }
     }
   }
-  printf("Took %f", timer.read());
+  printf("Render time: %f\n", timer.read());
 }
 
 void write_image(int width, int height, float *pixels, std::string fileName) {
+  printf("Writing out image file: \"%s\"\n", fileName.c_str());
+  FILE *image = fopen(fileName.c_str(), "w");
+  fprintf(image, "P6\n%d %d\n255\n", width, height);
+  for(size_t j=0; j<height; ++j) {
+    for(size_t i=0; i<width; ++i) {
+      size_t index = 3*(width * j + i);
+      unsigned char r = std::max(std::min(pixels[index  ]*255.f, 255.f), 0.f);
+      unsigned char g = std::max(std::min(pixels[index+1]*255.f, 255.f), 0.f);
+      unsigned char b = std::max(std::min(pixels[index+2]*255.f, 255.f), 0.f);
+      fprintf(image, "%c%c%c", r,g,b);
+    }
+  }
+  fclose(image);
 }
 
 int main(int argc, char **argv) {
@@ -82,29 +96,21 @@ int main(int argc, char **argv) {
   Vector3 camera_v = normalize(camera_u ^ camera_dir);
   
   // Allocate space for some image pixels
-  const unsigned int width=800, height=800;
+  const unsigned int width=8192, height=8192;
   float* regular_pixels = new float[width*height*3];
   float* new_pixels = new float[width*height*3];
 
   printf("Rendering image regular (%dx%d)...\n", width, height);
   render_image<BVH>(objects, width, height, regular_pixels,
           camera_position, camera_dir, camera_u, camera_v);
+  render_image<ABVH>(objects, width, height, new_pixels,
+          camera_position, camera_dir, camera_u, camera_v);
 
   // Output image file (PPM Format)
-  printf("Writing out image file: \"render.ppm\"\n");
-  FILE *image = fopen("render.ppm", "w");
-  fprintf(image, "P6\n%d %d\n255\n", width, height);
-  for(size_t j=0; j<height; ++j) {
-    for(size_t i=0; i<width; ++i) {
-      size_t index = 3*(width * j + i);
-      unsigned char r = std::max(std::min(pixels[index  ]*255.f, 255.f), 0.f);
-      unsigned char g = std::max(std::min(pixels[index+1]*255.f, 255.f), 0.f);
-      unsigned char b = std::max(std::min(pixels[index+2]*255.f, 255.f), 0.f);
-      fprintf(image, "%c%c%c", r,g,b);
-    }
-  }
-  fclose(image);
+  write_image(width, height, regular_pixels, "regular.ppm");
+  write_image(width, height, new_pixels, "new.ppm");
 
   // Cleanup
-  delete[] pixels;
+  delete regular_pixels;
+  delete new_pixels;
 }
