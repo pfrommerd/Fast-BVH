@@ -17,6 +17,7 @@ struct BVHFlatNode {
 //! \author Brandon Pelfrey
 //! A Bounding Volume Hierarchy system for fast Ray-Object intersection tests
 class BVH {
+public:
   uint32_t nNodes, nLeafs, leafSize;
   std::vector<Object*>* build_prims;
 

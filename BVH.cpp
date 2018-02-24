@@ -98,7 +98,6 @@ bool BVH::getIntersection(const Ray& ray, IntersectionInfo* intersection, bool o
       else if(hitc1) {
         todo[++stackptr] = BVHTraversal(ni + node.rightOffset, bbhits[2]);
       }
-
     }
   }
 

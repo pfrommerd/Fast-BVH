@@ -4,7 +4,8 @@
 #include <string>
 #include "BVH.h"
 #include "ABVH.h"
-#include "Sphere.h"
+#include "objects/Sphere.h"
+#include "objects/Box.h"
 #include "Stopwatch.h"
 
 // Return a random number in [0,1]
@@ -70,20 +71,48 @@ void write_image(int width, int height, float *pixels, std::string fileName) {
   fclose(image);
 }
 
+void create_random_spheres(std::vector<Object*> *objects) {
+    const unsigned int N = 1000000;
+    printf("Constructing %d random spheres...\n", N);
+    for(size_t i=0; i < N; ++i) {
+        objects->push_back(new Sphere(randVector3(), .01f));
+    }
+}
+
+void create_wall_spheres(std::vector<Object*> *objects) {
+    const unsigned int w = 3, h = 3;
+    for (size_t x = 0; x < w; x++) {
+        for (size_t y = 0; y < w; y++) {
+            objects->push_back(new Sphere(
+                        Vector3(1.0/w * x, 1.0/h * y, 0.0), 0.4f));
+        }
+    }
+}
+void create_wall_boxes(std::vector<Object*> *objects) {
+    objects->push_back(new Box(Vector3(0, 0, 0),
+                               Vector3(0.5, 0.5, 0.5)));
+}
+void create_bboxes(std::vector<Object*> *objects, const BVH &t, int level) {
+//  objects->push_back(new Box(t.flatTree[1].bbox));
+  objects->push_back(new Box(t.flatTree[t.flatTree[0].rightOffset].bbox));
+}
+
 int main(int argc, char **argv) {
   // If we want different results
   // each time
   srand(time(NULL));
 
   // Create a million spheres packed in the space of a cube
-  const unsigned int N = 100;
   std::vector<Object*> objects;
-  printf("Constructing %d spheres...\n", N);
-  for(size_t i=0; i<N; ++i) {
-    objects.push_back(new Sphere(randVector3(), .05f));
-  }
-
-
+  //create_random_spheres(&objects);
+  //create_wall_spheres(&objects);
+  create_wall_spheres(&objects);
+  ///*
+  BVH t(&objects);
+  // Extract the bounding boxes
+  objects.clear();
+  create_bboxes(&objects, t, 1);
+  //*/
 
   // Create a camera from position and focus point
   Vector3 camera_position(1.6, 1.3, 1.6);
@@ -96,14 +125,14 @@ int main(int argc, char **argv) {
   Vector3 camera_v = normalize(camera_u ^ camera_dir);
   
   // Allocate space for some image pixels
-  const unsigned int width=8192, height=8192;
+  const unsigned int width=512, height=512;
   float* regular_pixels = new float[width*height*3];
   float* new_pixels = new float[width*height*3];
 
+  render_image<ABVH>(objects, width, height, new_pixels,
+          camera_position, camera_dir, camera_u, camera_v);
   printf("Rendering image regular (%dx%d)...\n", width, height);
   render_image<BVH>(objects, width, height, regular_pixels,
-          camera_position, camera_dir, camera_u, camera_v);
-  render_image<ABVH>(objects, width, height, new_pixels,
           camera_position, camera_dir, camera_u, camera_v);
 
   // Output image file (PPM Format)

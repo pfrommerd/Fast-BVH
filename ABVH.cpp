@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <iostream>
+
 #include "ABVH.h"
 #include "Log.h"
 #include "Stopwatch.h"
@@ -19,7 +21,6 @@ struct ABVHTraversal {
 bool ABVH::getIntersection(const Ray& ray, IntersectionInfo* intersection, bool occlusion) const {
   intersection->t = 999999999.f;
   intersection->object = NULL;
-  float bbhits[4];
   int32_t closer, other;
 
   // Working set
@@ -35,7 +36,7 @@ bool ABVH::getIntersection(const Ray& ray, IntersectionInfo* intersection, bool 
     int ni = todo[stackptr].i;
     float near = todo[stackptr].mint;
     stackptr--;
-    const ABVHFlatNode &node(flatTree[ ni ]);
+    ABVHFlatNode &node(flatTree[ ni ]);
 
     // If this node is further than the closest found intersection, continue
     if(near > intersection->t)
@@ -63,49 +64,51 @@ bool ABVH::getIntersection(const Ray& ray, IntersectionInfo* intersection, bool 
       }
 
     } else { // Not a leaf
-      // If neither of the children
-      // are leaf nodes, we can use an accelerated intersection
-      // test re-using the previous minT, maxT of the children
-      if (flatTree[ni + 1].rightOffset != 0 && flatTree[ni + node.rightOffset].rightOffset != 0) {
-//          continue;
-      } 
+      ABVHFlatNode *left = &flatTree[ni + 1];
+      ABVHFlatNode *right = &flatTree[ni + node.rightOffset];
 
-      bool hitc0 = flatTree[ni+1].bbox.intersect(ray, bbhits, bbhits+1);
-      bool hitc1 = flatTree[ni+node.rightOffset].bbox.intersect(ray, bbhits+2, bbhits+3);
+      bool ur = right->rightOffset == 0 || !right->hit;
+      bool ul = left->rightOffset == 0 || !left->hit;
+      bool lp = left->hit;
+      bool rp = right->hit;
+      if (ul)
+          left->hit = left->bbox.intersect(ray, &(left->tnear), &(left->tfar));
+      if (ur)
+          right->hit = right->bbox.intersect(ray, &(right->tnear), &(right->tfar));
+      ul = !ul && ur && right->hit != rp;
+      ur = !ur && ul && left->hit != lp;
+      if (ul)
+          left->hit = left->bbox.intersect(ray, &(left->tnear), &(left->tfar));
+      if (ur)
+          right->hit = right->bbox.intersect(ray, &(right->tnear), &(right->tfar));
 
-      flatTree[ni + 1].hit = hitc0;
-      flatTree[ni + 1].tnear = bbhits[0];
-      flatTree[ni + 1].tfar = bbhits[1];
-
-      flatTree[ni + node.rightOffset].hit = hitc1;
-      flatTree[ni + node.rightOffset].tnear = bbhits[2];
-      flatTree[ni + node.rightOffset].tfar = bbhits[3];
-      
-      // Did we hit both nodes?
-      if(hitc0 && hitc1) {
+      // If both have not intersected, we need
+      // to reset the parent's hit field so that
+      // it is re-checked
+      if(!left->hit && !right->hit) node.hit = false;
+      else if(left->hit && right->hit) {
+        // Did we hit both nodes?
         // We assume that the left child is a closer hit...
         closer = ni+1;
         other = ni+node.rightOffset;
 
         // ... If the right child was actually closer, swap the relevant values.
-        if(bbhits[2] < bbhits[0]) {
-          std::swap(bbhits[0], bbhits[2]);
-          std::swap(bbhits[1], bbhits[3]);
-          std::swap(closer,other);
+        if(right->tnear < left->tnear) {
+          std::swap(left, right);
+          std::swap(closer, other);
         }
 
         // It's possible that the nearest object is still in the other side, but we'll
         // check the further-away node later...
-
         // Push the farther first
-        todo[++stackptr] = ABVHTraversal(other, bbhits[2]);
+        todo[++stackptr] = ABVHTraversal(other, right->tnear);
 
         // And now the closer (with overlap test)
-        todo[++stackptr] = ABVHTraversal(closer, bbhits[0]);
-      } else if (hitc0) {
-        todo[++stackptr] = ABVHTraversal(ni+1, bbhits[0]);
-      } else if(hitc1) {
-        todo[++stackptr] = ABVHTraversal(ni + node.rightOffset, bbhits[2]);
+        todo[++stackptr] = ABVHTraversal(closer, left->tnear);
+      } else if (left->hit) {
+        todo[++stackptr] = ABVHTraversal(ni+1, left->tnear);
+      } else if(right->hit) {
+        todo[++stackptr] = ABVHTraversal(ni+node.rightOffset, right->tnear);
       }
     }
   }

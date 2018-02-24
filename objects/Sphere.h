@@ -2,7 +2,8 @@
 #define Sphere_h_
 
 #include <cmath>
-#include "Object.h"
+#include "../Object.h"
+#include "../Vector3.h"
 
 //! For the purposes of demonstrating the BVH, a simple sphere
 struct Sphere : public Object {
