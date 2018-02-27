@@ -75,8 +75,8 @@ bool ABVH::getIntersection(const Ray& ray, IntersectionInfo* intersection, bool 
           left->hit = left->bbox.intersect(ray, &(left->tnear), &(left->tfar));
       if (ur)
           right->hit = right->bbox.intersect(ray, &(right->tnear), &(right->tfar));
-      ul = !ul && ur && right->hit != rp;
-      ur = !ur && ul && left->hit != lp;
+      ul = !ul  && (ur && right->hit != rp);
+      ur = !ur && (ul && left->hit != lp);
       if (ul)
           left->hit = left->bbox.intersect(ray, &(left->tnear), &(left->tfar));
       if (ur)

@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
   //create_random_spheres(&objects);
   //create_wall_spheres(&objects);
   create_wall_spheres(&objects);
-  ///*
+  /*
   BVH t(&objects);
   // Extract the bounding boxes
   objects.clear();
