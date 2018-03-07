@@ -80,11 +80,12 @@ void create_random_spheres(std::vector<Object*> *objects) {
 }
 
 void create_wall_spheres(std::vector<Object*> *objects) {
-    const unsigned int w = 3, h = 3;
+    const unsigned int w = 10, h = 10;
+    const unsigned int sd = w < h ? w : h;
     for (size_t x = 0; x < w; x++) {
         for (size_t y = 0; y < w; y++) {
             objects->push_back(new Sphere(
-                        Vector3(1.0/w * x, 1.0/h * y, 0.0), 0.4f));
+                        Vector3(1.0/w * x, 1.0/h * y, 0), 1.0/sd));
         }
     }
 }
@@ -129,11 +130,15 @@ int main(int argc, char **argv) {
   float* regular_pixels = new float[width*height*3];
   float* new_pixels = new float[width*height*3];
 
+  printf("\n\n");
+  printf("Rendering image new (%dx%d)...\n", width, height);
   render_image<ABVH>(objects, width, height, new_pixels,
           camera_position, camera_dir, camera_u, camera_v);
+  printf("\n\n");
   printf("Rendering image regular (%dx%d)...\n", width, height);
   render_image<BVH>(objects, width, height, regular_pixels,
           camera_position, camera_dir, camera_u, camera_v);
+  printf("\n\n");
 
   // Output image file (PPM Format)
   write_image(width, height, regular_pixels, "regular.ppm");

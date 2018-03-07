@@ -39,13 +39,14 @@ bool ABVH::getIntersection(const Ray& ray, IntersectionInfo* intersection, bool 
     ABVHFlatNode &node(flatTree[ ni ]);
 
     // If this node is further than the closest found intersection, continue
-    if(near > intersection->t)
+    if(near > intersection->t && near > intersection->ft)
       continue;
 
     // Is leaf -> Intersect
     if( node.rightOffset == 0 ) {
       for(uint32_t o=0;o<node.nPrims;++o) {
         IntersectionInfo current;
+        current.ft = node.tfar;
 
         const Object* obj = (*build_prims)[node.start+o];
         bool hit = obj->getIntersection(ray, &current);
